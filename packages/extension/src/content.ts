@@ -16,7 +16,6 @@
 
 import {
   CaptureSession,
-  DEFAULT_BACKEND_BASE_URL,
   type CaptureEvent,
   type CaptureState,
   initialState,
@@ -26,15 +25,15 @@ import {
 import {
   STATUS_STORAGE_KEY,
   idleStatus,
+  type BackgroundCommand,
   type ContentPush,
+  type IngestResult,
   type PopupCommand,
   type PopupStatus,
   type SaveOutcome,
 } from "./messages";
 import { captionsArePresent, parseCaptionRegion } from "./parser";
 
-const BACKEND_BASE_URL = DEFAULT_BACKEND_BASE_URL;
-const INGEST_URL = `${BACKEND_BASE_URL}/api/sessions`;
 const TICK_MS = 1000;
 
 let session: CaptureSession | null = null;
@@ -230,29 +229,33 @@ async function finishAndPost(): Promise<void> {
     return;
   }
 
+  // Hand the POST to the background service worker (extension context, holds the
+  // localhost host-permission) so Chrome does not show a "Local Network Access"
+  // prompt on the Meet page for every Stop.
+  let result: IngestResult;
   try {
-    const res = await fetch(INGEST_URL, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      lastSave = {
-        ok: false,
-        lineCount,
-        message: `Couldn't save (HTTP ${res.status}) — is the dashboard running at :8788?`,
-      };
-    } else {
-      lastSave = {
-        ok: true,
-        lineCount,
-        message: `Saved ${lineCount} line${lineCount === 1 ? "" : "s"} — open the dashboard.`,
-      };
-      // Success: clear the buffer so a new capture starts fresh.
-      session = null;
-    }
+    const request: BackgroundCommand = { type: "INGEST", payload };
+    result = (await chrome.runtime.sendMessage(request)) as IngestResult;
   } catch {
-    // Network error → keep the buffer for retry.
+    result = { ok: false, status: null };
+  }
+
+  if (result?.ok) {
+    lastSave = {
+      ok: true,
+      lineCount,
+      message: `Saved ${lineCount} line${lineCount === 1 ? "" : "s"} — open the dashboard.`,
+    };
+    // Success: clear the buffer so a new capture starts fresh.
+    session = null;
+  } else if (result?.status) {
+    lastSave = {
+      ok: false,
+      lineCount,
+      message: `Couldn't save (HTTP ${result.status}) — is the dashboard running at :8788?`,
+    };
+  } else {
+    // Network error / worker unreachable → keep the buffer for retry.
     lastSave = {
       ok: false,
       lineCount,

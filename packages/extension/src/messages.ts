@@ -7,6 +7,8 @@
  * chrome.storage.session so a freshly-opened popup can render immediately.
  */
 
+import type { IngestSession } from "@meeting-capture/shared";
+
 import type { CaptureStatus } from "./capture";
 
 /** The status snapshot the popup renders. Serializable (crosses the bridge). */
@@ -40,6 +42,23 @@ export type PopupCommand =
 
 /** Content → popup pushes. */
 export type ContentPush = { type: "STATUS"; status: PopupStatus };
+
+/**
+ * Content → background command: POST the buffered session to the local
+ * dashboard. The background service worker performs the network request because
+ * it runs in the EXTENSION context (with the `http://localhost:8788/*`
+ * host-permission). A `fetch` to localhost from the content script instead runs
+ * in the Meet PAGE's context, which triggers Chrome's "Local Network Access"
+ * permission prompt on every Stop — routing through the background avoids it.
+ */
+export type BackgroundCommand = { type: "INGEST"; payload: IngestSession };
+
+/** Background → content reply describing the POST outcome. */
+export interface IngestResult {
+  ok: boolean;
+  /** HTTP status code, or null if the request never completed (network error). */
+  status: number | null;
+}
 
 /** The chrome.storage.session key the content script writes status under. */
 export const STATUS_STORAGE_KEY = "meetingCaptureStatus";

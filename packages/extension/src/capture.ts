@@ -108,6 +108,7 @@ export class CaptureSession {
       i--, checked++
     ) {
       const prior = this.lines[i];
+      if (!prior) continue;
       if (prior.finalized && prior.speaker === speaker && prior.text === text) {
         return;
       }
