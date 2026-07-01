@@ -59,7 +59,7 @@ Google Meet's transcripts/recordings require admin features or leave you with a 
 - **Key surfaces / files:**
   - `pnpm-workspace.yaml`, root `package.json`, `packages/shared/{package.json,src/schema.ts,src/index.ts}`
   - `packages/extension/{manifest.config.ts,vite.config.ts,package.json}`, `packages/extension/src/{content.ts,parser.ts,popup.tsx,capture.ts}`, `packages/extension/tests/{parser.test.ts,fixtures/*.html}`
-  - `packages/web/{package.json,next.config.ts,drizzle.config.ts,postcss.config.mjs}`, `packages/web/src/db/{schema.ts,client.ts}`, `packages/web/src/llm/gemini.ts`, `packages/web/src/log.ts`, `packages/web/app/api/health/route.ts`, `packages/web/app/api/sessions/route.ts`, `packages/web/app/api/sessions/[id]/route.ts`, `packages/web/tests/api.test.ts`
+  - `packages/web/{package.json,next.config.ts,drizzle.config.ts,postcss.config.mjs}`, `packages/web/src/db/{schema.ts,client.ts}`, `packages/web/src/llm/gemini.ts`, `packages/web/src/prompts/title.md`, `packages/web/src/log.ts`, `packages/web/app/api/health/route.ts`, `packages/web/app/api/sessions/route.ts`, `packages/web/app/api/sessions/[id]/route.ts`, `packages/web/tests/api.test.ts`
   - `packages/web/app/page.tsx` (library), `packages/web/app/meetings/[id]/page.tsx` (transcript + stub panels), `packages/web/app/globals.css`, `packages/web/src/components/*`, `packages/web/tests/e2e/*.spec.ts`
 - **Gate command (all must pass, from repo root, real Gemini via `.env` + real SQLite):**
   1. `pnpm install`

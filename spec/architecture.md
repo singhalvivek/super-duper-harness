@@ -91,7 +91,7 @@ The **existing** Python/FastAPI/LangGraph skeleton in the repo root (`src/`, `py
 - **Frontend:** **Next.js 15 + React 19** (App Router) with **Tailwind CSS v4**. This is the same app as the backend.
 - **Extension:** **Chrome MV3**, TypeScript, bundled with **Vite** (`@crxjs/vite-plugin`) producing an unpacked extension folder at `packages/extension/dist/`. Loaded via `chrome://extensions` → Load unpacked.
   > **Assumed:** Vite + `@crxjs/vite-plugin` is the extension bundler (handles MV3 manifest, content-script + popup entry points, HMR in dev, and a clean `dist/` for Load-unpacked). tsup/esbuild alone would require hand-rolling the MV3 manifest wiring; crxjs is the least-effort correct choice.
-- **Dependency management:** **pnpm workspaces** (`pnpm-workspace.yaml`) across `packages/shared`, `packages/web`, `packages/extension`.
+- **Dependency management:** **pnpm workspaces** (`pnpm-workspace.yaml`) across three packages, each with a scoped name: `@meeting-capture/shared` (`packages/shared`), `@meeting-capture/web` (`packages/web`), `@meeting-capture/extension` (`packages/extension`). The web and extension packages declare `"@meeting-capture/shared": "workspace:*"` as a dependency.
 - **Testing:** **Vitest** for unit/integration (caption parser against DOM fixtures; API ingest/list/get against real SQLite). **Playwright** for dashboard E2E against the running Next.js app.
 - **Observability:** Structured JSON request/response logging (input size, output, latency, error) to stdout on every `/api/*` handler and every Gemini call, wired from Phase 1. No LangSmith (no LangGraph).
 
