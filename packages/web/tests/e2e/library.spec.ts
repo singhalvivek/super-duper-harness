@@ -104,23 +104,48 @@ test("meeting detail shows the AI Summary and Q&A panels as labelled 'Coming soo
 
   await page.goto(`/meetings/${ingest.id}`);
 
-  // The two detail-page stub panels (AI Summary + Q&A) live inside <main>. We
-  // scope to <main> so the top header Search box — which is ALSO a labelled
-  // `data-stub` but belongs to the shared chrome, not this view — is excluded.
-  const panelStubs = page.locator('main [data-stub="true"]');
-  await expect(panelStubs).toHaveCount(2); // AI Summary + Q&A panels only.
+  // The detail page renders the vision as clearly-labelled stubs. THREE
+  // `data-stub` elements are present on this view — and all three are correct,
+  // intended placeholders:
+  //   1. the AI Summary panel   (in <main>, testid badge `coming-soon-badge`)
+  //   2. the Q&A panel          (in <main>, testid badge `coming-soon-badge`)
+  //   3. the cross-meeting Search box in the shared HEADER (in <header>, its
+  //      "Coming soon" marker is the DIFFERENT testid `search-coming-soon`).
+  // So a global `[data-stub]` count on this page is 3, not 2. Rather than count
+  // globally (brittle) we assert the TWO detail-page panels precisely by title:
+  // each StubPanel is a `<section data-stub="true">` whose heading is the title
+  // and which carries a `coming-soon-badge`. This proves the two real panels
+  // render as labelled "Coming soon" stubs without being thrown off by the
+  // ever-present header Search stub.
 
+  // 1) AI Summary panel: visible, carries data-stub, and a "Coming soon" badge.
+  const summaryPanel = page.locator(
+    'section[data-stub="true"]:has(h3:text-is("AI Summary"))',
+  );
+  await expect(summaryPanel).toHaveCount(1);
+  await expect(summaryPanel).toBeVisible();
   await expect(page.getByText("AI Summary", { exact: true })).toBeVisible();
+  await expect(summaryPanel.getByTestId("coming-soon-badge")).toHaveText(
+    "Coming soon",
+  );
+
+  // 2) Q&A ("Ask about this meeting") panel: same three guarantees.
+  const qaPanel = page.locator(
+    'section[data-stub="true"]:has(h3:text-is("Ask about this meeting"))',
+  );
+  await expect(qaPanel).toHaveCount(1);
+  await expect(qaPanel).toBeVisible();
   await expect(
     page.getByText("Ask about this meeting", { exact: true }),
   ).toBeVisible();
+  await expect(qaPanel.getByTestId("coming-soon-badge")).toHaveText(
+    "Coming soon",
+  );
 
-  // Each StubPanel carries the explicit "Coming soon" badge (the header Search
-  // stub uses a different marker — `search-coming-soon` — so these two badges
-  // are exactly the two content panels).
-  const badges = page.getByTestId("coming-soon-badge");
-  await expect(badges).toHaveCount(2);
-  await expect(badges.first()).toHaveText("Coming soon");
+  // And exactly TWO `coming-soon-badge`s exist — the two content panels. The
+  // header Search stub uses the distinct `search-coming-soon` marker, so it is
+  // correctly NOT counted here.
+  await expect(page.getByTestId("coming-soon-badge")).toHaveCount(2);
 });
 
 test("the top cross-meeting Search box is a disabled, labelled 'Coming soon' stub", async ({

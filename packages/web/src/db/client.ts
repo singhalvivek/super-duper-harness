@@ -23,14 +23,31 @@ import * as schema from "./schema";
 
 export type DbClient = ReturnType<typeof drizzle<typeof schema>>;
 
-/** The package root (packages/web) — this file lives at src/db/, two up. */
-const PACKAGE_ROOT = resolve(__dirname, "..", "..");
+/**
+ * Resolve a RELATIVE DB path against the process working directory, NOT this
+ * file's `__dirname`.
+ *
+ * At dev/start time the app runs with `cwd = packages/web` (that is where
+ * `next dev` / `next start` execute under the pnpm filter, and where
+ * `drizzle-kit migrate` reads its config from). Under a bundled `next start`,
+ * `__dirname` points INSIDE `.next/server/app/…`, so a `__dirname`-relative
+ * default resolved to `.next/server/app/data/meetings.db` — a NEW, empty,
+ * unmigrated file — instead of the migrated `packages/web/data/meetings.db`.
+ * Resolving from `process.cwd()` makes the runtime DB target identical to the
+ * `drizzle-kit migrate` target (drizzle.config.ts also resolves from cwd), so
+ * reads/writes hit the SAME migrated file.
+ */
+function packageRoot(): string {
+  return process.cwd();
+}
 
 /** Resolve a raw DATABASE_URL/path into an absolute local file path. */
 function resolveDbFilePath(raw: string): string {
   // Accept a `file:` URL or a bare path; normalize to an absolute fs path.
   const p = raw.startsWith("file:") ? raw.slice("file:".length) : raw;
-  return isAbsolute(p) ? p : resolve(PACKAGE_ROOT, p);
+  // Absolute paths / `file:` URLs are honored as-is; only relative paths are
+  // resolved (against the working dir — see packageRoot()).
+  return isAbsolute(p) ? p : resolve(packageRoot(), p);
 }
 
 /** Build the `file:` URL libSQL expects from an absolute fs path. */

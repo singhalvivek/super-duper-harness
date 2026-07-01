@@ -25,11 +25,21 @@ const DEFAULT_MODEL = "gemini-2.5-flash";
 const AUTH_ERROR_MESSAGE =
   "Gemini authentication failed. Check GEMINI_API_KEY in .env — get a key at https://aistudio.google.com/apikey.";
 
-/** The prompts dir lives at src/prompts; this file is at src/llm. */
-const PROMPTS_DIR = resolve(__dirname, "..", "prompts");
-
+/**
+ * The prompts live as `.md` files under `packages/web/src/prompts/` (per
+ * spec/agent.md — loaded at runtime, not inlined as string literals). We locate
+ * them relative to `process.cwd()`, NOT `__dirname`.
+ *
+ * Under a bundled `next start`, `__dirname` resolves INSIDE `.next/server/app/…`,
+ * so a `__dirname`-relative path pointed at `.next/server/app/prompts/title.md`
+ * → ENOENT, which made `titleTranscript()` throw BEFORE the real Gemini call and
+ * silently fall back to a placeholder title on every ingest. The app runs with
+ * `cwd = packages/web` at dev/start time, so `src/prompts/title.md` resolved
+ * from cwd is the real, present file under both `next dev` and `next start`.
+ */
 function loadPrompt(name: string): string {
-  return readFileSync(resolve(PROMPTS_DIR, name), "utf8");
+  const promptsDir = resolve(process.cwd(), "src", "prompts");
+  return readFileSync(resolve(promptsDir, name), "utf8");
 }
 
 function getModelId(): string {
