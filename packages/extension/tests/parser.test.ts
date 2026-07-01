@@ -58,6 +58,36 @@ describe("parseCaptionRegion — two speakers", () => {
   });
 });
 
+describe("parseCaptionRegion — REAL Google Meet DOM (captured live)", () => {
+  it("parses the real caption rows with correct speakers + text", () => {
+    const region = loadFixture("meet-captions-real.html");
+    const lines = parseCaptionRegion(region);
+
+    // Two real caption rows — the "Jump to recent captions" button and the
+    // hidden node between them must NOT be captured.
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toEqual({
+      speaker: "You",
+      text: "and then, when tested Okay. Now, I am going to test the call block, which I have bought. In the pencil table and check the output.",
+    });
+    expect(lines[1]).toEqual({
+      speaker: "Priya Sharma",
+      text: "Yes, the pencil table output looks correct to me.",
+    });
+  });
+
+  it("does not capture the 'Jump to recent captions' button as a line", () => {
+    const region = loadFixture("meet-captions-real.html");
+    const texts = parseCaptionRegion(region).map((l) => l.text);
+    expect(texts.join(" | ")).not.toMatch(/jump to|arrow_downward/i);
+  });
+
+  it("detects captions are ON from the real region", () => {
+    const region = loadFixture("meet-captions-real.html");
+    expect(captionsArePresent(region)).toBe(true);
+  });
+});
+
 describe("parseCaptionRegion — single speaker", () => {
   it("extracts the one line with correct speaker and text", () => {
     const region = loadFixture("meet-captions-single.html");

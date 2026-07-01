@@ -31,7 +31,7 @@ import {
   type PopupStatus,
   type SaveOutcome,
 } from "./messages";
-import { captionsArePresent, parseCaptionNode } from "./parser";
+import { captionsArePresent, parseCaptionRegion } from "./parser";
 
 const BACKEND_BASE_URL = DEFAULT_BACKEND_BASE_URL;
 const INGEST_URL = `${BACKEND_BASE_URL}/api/sessions`;
@@ -52,11 +52,21 @@ function detectCaptions(): boolean {
   return captionsArePresent(document);
 }
 
-/** Locate the live caption region element, if present. */
+/**
+ * Locate the live caption TEXT region element, if present.
+ *
+ * Requiring `role="region"` is essential: several Meet buttons carry "caption"
+ * in their aria-label ("Open caption settings", "Turn off captions") and a bare
+ * `[aria-label*="aption"]` match returns one of those buttons — whose children
+ * contain no caption rows — so nothing gets captured. The real caption text
+ * container is `<div role="region" aria-label="Captions">`.
+ */
 function findCaptionRegion(): Element | null {
   return (
-    document.querySelector('[aria-label*="aption" i]') ??
-    document.querySelector('[jsname][role="region"]') ??
+    document.querySelector('div[role="region"][aria-label*="aption" i]') ??
+    document.querySelector('[role="region"][aria-label*="aption" i]') ??
+    document.querySelector('[jsname="dsyhDe"]') ??
+    document.querySelector(".iOzk7") ??
     document.querySelector(".caption-region")
   );
 }
@@ -104,20 +114,21 @@ function dispatch(event: CaptureEvent): void {
   publishStatus();
 }
 
-/** Feed one caption row element into the buffer (if we're recording). */
-function ingestRow(el: Element): void {
+/**
+ * Re-scan the whole caption region (mutation-observer callback target).
+ *
+ * Uses the pure `parseCaptionRegion`, which selects the REAL caption rows
+ * (`.nMcdL`) and skips non-caption siblings like the "Jump to recent captions"
+ * button and hidden nodes — feeding each parsed line into the deduping buffer.
+ */
+function scanCaptionRegion(): void {
   if (!session) return;
   if (machine.status !== "recording" && machine.status !== "warning") return;
-  const parsed = parseCaptionNode(el);
-  if (parsed) session.append(parsed, Date.now());
-}
-
-/** Re-scan the whole caption region (mutation observer callback target). */
-function scanCaptionRegion(): void {
   const region = findCaptionRegion();
   if (!region) return;
-  for (const row of Array.from(region.children)) {
-    ingestRow(row);
+  const now = Date.now();
+  for (const parsed of parseCaptionRegion(region)) {
+    session.append(parsed, now);
   }
 }
 

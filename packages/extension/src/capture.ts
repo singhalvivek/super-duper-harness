@@ -97,6 +97,22 @@ export class CaptureSession {
       return;
     }
 
+    // Meet's caption region renders several rows at once (the last ~2–3
+    // utterances), and we re-scan the WHOLE region on every mutation. So an
+    // already-finalized older row is re-observed after a newer speaker's line
+    // has opened. If this exact (speaker, text) matches a recently-finalized
+    // line, it's that re-render — ignore it rather than creating a duplicate.
+    for (
+      let i = this.lines.length - 1, checked = 0;
+      i >= 0 && checked < 4;
+      i--, checked++
+    ) {
+      const prior = this.lines[i];
+      if (prior.finalized && prior.speaker === speaker && prior.text === text) {
+        return;
+      }
+    }
+
     // A new speaker (or first line): finalize the previous open line and start
     // a fresh in-progress one.
     if (open && !open.finalized) open.finalized = true;

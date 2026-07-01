@@ -46,12 +46,23 @@ export const UNKNOWN_SPEAKER = "Unknown";
  * but never *require* them — structural parsing is the real fallback.
  */
 const CAPTION_REGION_HINTS = [
-  '[aria-label*="aption" i]', // "Captions" / "Live caption"
-  '[jsname][role="region"]',
+  // The REAL Meet caption text container is a role="region" whose aria-label
+  // contains "Captions". Requiring role="region" is critical: several Meet
+  // BUTTONS also carry "caption" in their aria-label ("Open caption settings",
+  // "Turn off captions"), and a bare [aria-label*="aption"] match grabs one of
+  // those buttons instead of the text region — capturing zero lines.
+  'div[role="region"][aria-label*="aption" i]',
+  '[role="region"][aria-label*="aption" i]',
+  '[jsname="dsyhDe"]', // Meet caption container wrapper (current build)
+  ".iOzk7", // Meet caption container (obfuscated but current)
   ".caption-region", // our fixtures + a stable-ish hook
 ];
 
-const CAPTION_ROW_HINTS = [".caption-row", "[data-caption-row]"];
+const CAPTION_ROW_HINTS = [
+  ".nMcdL", // REAL Meet caption row (speaker block + text), current build
+  ".caption-row",
+  "[data-caption-row]",
+];
 
 /**
  * Collapse Meet's whitespace: it emits stray newlines / non-breaking spaces
@@ -79,10 +90,30 @@ function looksLikeName(s: string): boolean {
   return true;
 }
 
+/**
+ * UI-control / non-caption nodes that must never be mistaken for a speaker name
+ * or caption text. Meet's caption region contains a "Jump to the most recent
+ * captions" BUTTON (with icon ligatures like "arrow_downward" and aria-hidden
+ * helper text like "Jump to the bottom") as a sibling of the real caption rows;
+ * without this filter that button's text would be parsed as a bogus caption.
+ */
+function isIgnorableNode(el: Element): boolean {
+  const tag = el.tagName;
+  if (tag === "BUTTON" || tag === "I" || tag === "SVG" || tag === "IMG") {
+    return true;
+  }
+  if (el.getAttribute("role") === "button") return true;
+  // aria-hidden nodes are decorative/helper text (icons, offscreen labels),
+  // never the visible caption line.
+  if (el.getAttribute("aria-hidden") === "true") return true;
+  return false;
+}
+
 /** The direct text-bearing element children of `el`, in document order. */
 function textBearingChildren(el: Element): Element[] {
   return Array.from(el.children).filter(
-    (child) => normalizeText(child.textContent).length > 0,
+    (child) =>
+      !isIgnorableNode(child) && normalizeText(child.textContent).length > 0,
   );
 }
 
@@ -131,12 +162,16 @@ function extractSpeaker(row: Element): string {
     if (alt && looksLikeName(alt)) return alt;
   }
 
-  // 2. Explicitly tagged speaker element.
+  // 2. Explicitly tagged speaker element — including Meet's real speaker-name
+  //    node (`.KcIKyf` wraps a `<span>` with the display name). The avatar's
+  //    `alt` is often EMPTY on real Meet, so the name node is the primary source.
   const tagged =
-    row.querySelector("[data-speaker]") ?? row.querySelector(".caption-speaker");
+    row.querySelector("[data-speaker]") ??
+    row.querySelector(".caption-speaker") ??
+    row.querySelector(".KcIKyf");
   if (tagged) {
     const name = normalizeText(tagged.textContent);
-    if (name) return name;
+    if (name && looksLikeName(name)) return name;
   }
 
   // 3. First short, name-like LEAF text element (descend past wrappers so we
@@ -156,13 +191,16 @@ function extractSpeaker(row: Element): string {
  * the caption after the name).
  */
 function extractText(row: Element, speaker: string): string {
-  // Explicitly tagged caption text.
+  // Explicitly tagged caption text — including Meet's real caption-text node
+  //    (`.ygicle`, which also carries `.VbkSUe`). This is the spoken sentence,
+  //    a sibling of the speaker block within the row.
   const tagged =
     row.querySelector("[data-caption-text]") ??
-    row.querySelector(".caption-text");
+    row.querySelector(".caption-text") ??
+    row.querySelector(".ygicle");
   if (tagged) {
     const t = normalizeText(tagged.textContent);
-    if (t) return t;
+    if (t && t !== speaker) return t;
   }
 
   // Choose the LEAF text element whose content differs from the speaker name
@@ -281,11 +319,22 @@ export function parseCaptionRegion(root: Element | Document): ParsedCaption[] {
  */
 export function captionsArePresent(root: Element | Document): boolean {
   if (!root) return false;
-  // Captions are ON iff an actual caption REGION or caption ROW hint matches.
-  // We deliberately do NOT use the generic body-children fallback here: an
-  // arbitrary page that merely has text (but no caption region) must read as
+  // Captions are ON iff an actual caption REGION or caption ROW hint matches,
+  // OR the "Turn off captions" toggle is present (Meet shows that label ONLY
+  // while captions are currently enabled — "Turn on captions" when off). The
+  // toggle makes detection accurate the moment captions are enabled, even
+  // before anyone has spoken (the text region can mount lazily).
+  //
+  // We deliberately do NOT use a generic body-children fallback: an arbitrary
+  // page that merely has text (but no caption region/toggle) must read as
   // captions-OFF, otherwise the captions-on-to-start gate would never block.
-  for (const sel of [...CAPTION_REGION_HINTS, ...CAPTION_ROW_HINTS]) {
+  const selectors = [
+    ...CAPTION_REGION_HINTS,
+    ...CAPTION_ROW_HINTS,
+    'button[aria-label*="turn off caption" i]',
+    '[role="button"][aria-label*="turn off caption" i]',
+  ];
+  for (const sel of selectors) {
     if (root instanceof Document) {
       if (root.querySelector(sel)) return true;
     } else if (root.matches(sel) || root.querySelector(sel)) {
