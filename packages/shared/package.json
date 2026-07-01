@@ -1,0 +1,27 @@
+{
+  "name": "@meeting-capture/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared Zod schemas + TypeScript types for the Meeting Capture Assistant wire contract (ingest/list/get). Imported by the extension and the web app so the wire format cannot drift.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "main": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,2 +1,20 @@
 packages:
   - "packages/*"
+
+# Native / postinstall build scripts pnpm is allowed to run.
+# better-sqlite3 was removed (swapped for @libsql/client, which ships prebuilt
+# binaries and needs no build step). It may still be pulled in transitively as
+# an OPTIONAL peer of drizzle-orm, but it is never imported.
+onlyBuiltDependencies:
+  - esbuild
+  - "@google/genai"
+  - protobufjs
+  - sharp
+
+# Build scripts pnpm should silently skip (never runs them, no prompt / non-zero
+# exit). better-sqlite3 arrives only as an unused optional peer of drizzle-orm;
+# @libsql/client (the real driver) is a prebuilt binary needing no build step.
+ignoredBuiltDependencies:
+  - better-sqlite3
+
+verifyDepsBeforeRun: false

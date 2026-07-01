@@ -1,0 +1,29 @@
+<!--
+  Fixture: Google Meet live-caption region with TWO speakers.
+  Modeled on Meet's real structure: a caption region containing per-speaker
+  rows, each with an avatar <img> (speaker name in alt), a speaker-name node,
+  and the caption-text node. Class names are obfuscated-style on purpose — the
+  parser must NOT depend on them; the data-* / .caption-* hooks and structure
+  are what it keys on.
+-->
+<div class="iOzk7 caption-region" aria-label="Captions" role="region">
+  <div class="TBMuR bj4p3b caption-row" data-caption-row>
+    <img class="r6DyN" alt="Ada Lovelace" src="https://lh3.googleusercontent.com/a/ada" />
+    <div class="zs7s8d jxFHg">
+      <div class="KcIKyf jxFHg caption-speaker" data-speaker>Ada Lovelace</div>
+      <div class="iTTPOb VbkSUe caption-text" data-caption-text>
+        Let's start with the roadmap for this quarter.
+      </div>
+    </div>
+  </div>
+
+  <div class="TBMuR bj4p3b caption-row" data-caption-row>
+    <img class="r6DyN" alt="Charles Babbage" src="https://lh3.googleusercontent.com/a/charles" />
+    <div class="zs7s8d jxFHg">
+      <div class="KcIKyf jxFHg caption-speaker" data-speaker>Charles Babbage</div>
+      <div class="iTTPOb VbkSUe caption-text" data-caption-text>
+        Sounds good &mdash; I have the analytical engine numbers ready.
+      </div>
+    </div>
+  </div>
+</div>

@@ -6,7 +6,7 @@
 
 ## Storage Technology
 
-**SQLite** (local file `packages/web/data/meetings.db`, overridable via `DATABASE_URL`) via **Drizzle ORM** with the `better-sqlite3` driver. Migrations are generated from the Drizzle schema and applied with `drizzle-kit` (`db:generate` → `db:migrate`; commands in [architecture.md](architecture.md) → `## Commands`). SQLite is production for this single-user local tool, so tests use the same engine (a temp SQLite file per run). Schema lives in `packages/web/src/db/schema.ts`; the typed client in `packages/web/src/db/client.ts`.
+**SQLite** (local file `packages/web/data/meetings.db`, overridable via `DATABASE_URL`) via **Drizzle ORM** with the **libSQL** driver (`@libsql/client`, `drizzle-orm/libsql`; chosen over `better-sqlite3` because that native addon needs a C++ toolchain and has no Node 24 Windows prebuilt, whereas libSQL ships prebuilt cross-platform binaries, is Drizzle-supported, and uses the same SQLite file format via a `file:` URL). Migrations are generated from the Drizzle schema and applied with `drizzle-kit` (`db:generate` → `db:migrate`; commands in [architecture.md](architecture.md) → `## Commands`). SQLite is production for this single-user local tool, so tests use the same engine (a temp libSQL file DB per run). Schema lives in `packages/web/src/db/schema.ts`; the typed client in `packages/web/src/db/client.ts`.
 
 The design target is a **growing library of long (1–2h) transcripts** that stays organized and queryable: meetings list newest-first (indexed on `started_at`), and a meeting's lines load in capture order (indexed on `(meeting_id, seq)`).
 

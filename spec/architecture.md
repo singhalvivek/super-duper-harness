@@ -86,8 +86,9 @@ The **existing** Python/FastAPI/LangGraph skeleton in the repo root (`src/`, `py
 - **LLM provider + model:** **Google Gemini** via `@google/genai` (Google Gen AI TypeScript SDK). Model id `gemini-2.5-flash` (configurable via `GEMINI_MODEL` env var; a fast, large-context model well-suited to 1–2h transcripts). API key in `.env` as `GEMINI_API_KEY`.
   > **Assumed:** `gemini-2.5-flash` is the default model; overridable via `GEMINI_MODEL`. The provided `GEMINI_API_KEY` may NOT be the usual AI Studio `AIza…` format — the code must NOT validate the key's shape, must attempt the real call, and must surface the provider's auth error verbatim plus a pointer to `.env` / https://aistudio.google.com/apikey rather than pre-rejecting or masking it.
 - **Backend:** **Next.js 15 Route Handlers** (App Router, `app/api/*/route.ts`) — same app/process/port as the dashboard. Runs on the Node.js runtime (not Edge) so it can use the SQLite driver and Node crypto.
-- **Database + ORM:** **SQLite** (local file `packages/web/data/meetings.db`) via **Drizzle ORM** + `better-sqlite3` driver. Migrations via **drizzle-kit**. SQLite is production for this single-user local tool, so tests run against the same engine (a separate temp SQLite file per test run) — never a lighter substitute.
-  > **Assumed:** DB file path is `packages/web/data/meetings.db`, overridable via `DATABASE_URL` (a file path). The `data/` dir is gitignored.
+- **Database + ORM:** **SQLite** (local file `packages/web/data/meetings.db`) via **Drizzle ORM** + **libSQL** driver (`@libsql/client`, `drizzle-orm/libsql`). Migrations via **drizzle-kit** (dialect `sqlite`, driver `libsql`). SQLite is production for this single-user local tool, so tests run against the same engine (a separate temp libSQL file DB per test run) — never a lighter substitute.
+  > **Driver note (binding):** `better-sqlite3` is a native addon that needs a C++ toolchain (node-gyp + Visual Studio) to compile and has **no prebuilt binary for Node 24 (ABI 137) on Windows**, so it cannot install/run here. We use **libSQL** (`@libsql/client` + `drizzle-orm/libsql`) instead: it ships prebuilt cross-platform binaries (no compile step), is fully supported by Drizzle, and uses the **same local-SQLite file format**. It connects via a `file:`-prefixed URL. This remains "local SQLite" — the product requirement is unchanged; only the driver package changes.
+  > **Assumed:** DB file path is `packages/web/data/meetings.db`, overridable via `DATABASE_URL`. The connection URL is `file:<path>`; `DATABASE_URL` may be a bare path (code prepends `file:`) or a full `file:`/`libsql:` URL. The `data/` dir is gitignored.
 - **Frontend:** **Next.js 15 + React 19** (App Router) with **Tailwind CSS v4**. This is the same app as the backend.
 - **Extension:** **Chrome MV3**, TypeScript, bundled with **Vite** (`@crxjs/vite-plugin`) producing an unpacked extension folder at `packages/extension/dist/`. Loaded via `chrome://extensions` → Load unpacked.
   > **Assumed:** Vite + `@crxjs/vite-plugin` is the extension bundler (handles MV3 manifest, content-script + popup entry points, HMR in dev, and a clean `dist/` for Load-unpacked). tsup/esbuild alone would require hand-rolling the MV3 manifest wiring; crxjs is the least-effort correct choice.
@@ -120,7 +121,7 @@ The **existing** Python/FastAPI/LangGraph skeleton in the repo root (`src/`, `py
 | tailwindcss | 4.x | Dashboard styling (`@tailwindcss/postcss` + `@source` in globals.css) |
 | drizzle-orm | ^0.36 | SQLite ORM (schema, queries) |
 | drizzle-kit | ^0.28 | Migration generate/apply (`db:generate` / `db:migrate`) |
-| better-sqlite3 | ^11 | SQLite driver (synchronous, Node runtime) — **main dependency**, needed at migrate/deploy time |
+| @libsql/client | ^0.14 | SQLite driver (libSQL, prebuilt cross-platform binaries — no native compile; Node runtime) — **main dependency**, needed at migrate/deploy time |
 | @google/genai | latest | Google Gemini TypeScript SDK (titling now; summary/Q&A later) |
 | zod | ^3 | Request/response validation; source of the shared wire types |
 | vite | ^5 | Extension bundler |
@@ -134,7 +135,7 @@ The **existing** Python/FastAPI/LangGraph skeleton in the repo root (`src/`, `py
 - **No agent-orchestration framework** (LangGraph/CrewAI/AutoGen) — plain Gemini calls only.
 - **No second backend server / second port** — do not add Express/Fastify; the Next.js app is the only server.
 - **No audio capture / STT / Whisper / speech-to-text anywhere** — capture is captions-only, by design.
-- **No Edge runtime for `/api/*`** — SQLite + `better-sqlite3` require the Node runtime; set `export const runtime = "nodejs"` on DB-touching handlers.
+- **No Edge runtime for `/api/*`** — SQLite + `@libsql/client` require the Node runtime; set `export const runtime = "nodejs"` on DB-touching handlers.
 - **No token/cost UI** — hidden by product decision.
 - **No key-format pre-validation** — never reject `GEMINI_API_KEY` for not matching `AIza…`; attempt the call and surface the real auth error.
 
