@@ -1,0 +1,21 @@
+{
+  "name": "meeting-capture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Meeting Capture Assistant — capture Google Meet transcripts from live captions (Chrome MV3 extension), store locally, browse/read/summarize/query from a Next.js dashboard. All TypeScript.",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @meeting-capture/web dev",
+    "build": "pnpm --filter @meeting-capture/web build && pnpm --filter @meeting-capture/extension build",
+    "build:web": "pnpm --filter @meeting-capture/web build",
+    "build:extension": "pnpm --filter @meeting-capture/extension build",
+    "start": "pnpm --filter @meeting-capture/web start",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @meeting-capture/web test:e2e",
+    "db:generate": "pnpm --filter @meeting-capture/web db:generate",
+    "db:migrate": "pnpm --filter @meeting-capture/web db:migrate"
+  }
+}
