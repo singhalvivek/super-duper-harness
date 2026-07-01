@@ -13,11 +13,18 @@ A capability is a single, discrete action or behavior the agent performs. Exampl
 
 ## Capabilities in This Project
 
-<!-- FILL IN: List capabilities here as they are defined. Each entry links to its spec file (no number prefix). -->
-
-| Capability | File |
-|-----------|------|
-| <!-- name --> | [name.md](name.md) |
+| Capability | Phase | File |
+|-----------|-------|------|
+| Capture Transcript (Google Meet live captions) | 1 | [capture-transcript.md](capture-transcript.md) |
+| Meeting Library | 1 | [meeting-library.md](meeting-library.md) |
+| Transcript View | 1 | [transcript-view.md](transcript-view.md) |
+| AI Title (Gemini auto-titling) | 1 | [ai-title.md](ai-title.md) |
+| AI Summary (TL;DR + key points + action items) | 2 (stub in P1) | [ai-summary.md](ai-summary.md) |
+| Action Items with Owners | 2 (stub in P1) | [action-items.md](action-items.md) |
+| Grounded Q&A on a Meeting | 3 (stub in P1) | [qa.md](qa.md) |
+| Slack Auto-Post of Summary | 4 (deferred) | [slack-post.md](slack-post.md) |
+| Saved Recording | 4 (deferred) | [saved-recording.md](saved-recording.md) |
+| Cross-Meeting Search | 5 (stub in P1, built last) | [cross-meeting-search.md](cross-meeting-search.md) |
 
 ## How to Add a New Capability
 
