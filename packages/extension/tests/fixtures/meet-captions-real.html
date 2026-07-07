@@ -1,0 +1,35 @@
+<!--
+  REAL Google Meet live-caption DOM, captured from a live meeting (July 2026 build).
+  Class names are Meet's obfuscated build hashes; this fixture exists so the parser
+  is verified against the ACTUAL structure, not synthetic hooks. Key facts it locks in:
+    - the region is <div role="region" aria-label="Captions"> (buttons also say "caption")
+    - each caption row is `.nMcdL` → `.adE6rb` (avatar img with EMPTY alt + `.KcIKyf` name)
+      + `.ygicle` (the spoken text)
+    - a "Jump to the most recent captions" BUTTON (`.IMKgW`) is a sibling of the rows
+      and must NOT be captured as a caption line.
+-->
+<div tabindex="0" role="region" aria-label="Captions" class="vNKgIf UDinHf" jscontroller="KPn5nb">
+  <div class="nMcdL bj4p3b     ">
+    <div class="adE6rb">
+      <img class="Z6byG r6DyN" alt="" src="https://lh3.googleusercontent.com/a/ACg8ocK6iFltlKSxj_Pp9QDdml1ZHVHzjTvFnz6zuoKxtPYE7CIgjQA0=s192-c-mo">
+      <div class="KcIKyf jxFHg "><span class="NWpY1d">You</span></div>
+    </div>
+    <div class="ygicle VbkSUe">and then, when tested Okay. Now, I am going to test the call block, which I have bought. In the pencil table and check the output. </div>
+  </div>
+  <div class="nMcdL bj4p3b     ">
+    <div class="adE6rb">
+      <img class="Z6byG r6DyN" alt="" src="https://lh3.googleusercontent.com/a/ADIFFERENTAVATAR=s192-c-mo">
+      <div class="KcIKyf jxFHg "><span class="NWpY1d">Priya Sharma</span></div>
+    </div>
+    <div class="ygicle VbkSUe">Yes, the pencil table output looks correct to me.</div>
+  </div>
+  <div><div class="GvZY2" jscontroller="kXGfg" style="display: none;"></div></div>
+  <div class="IMKgW">
+    <div class="VfPpkd-dgl2Hf-ppHlrf-sM5MNb" data-is-touch-wrapper="true">
+      <button class="UywwFc-LgbsSe q7vyEf" jscontroller="O626Fe" jsname="Xke7ne" aria-label="Jump to the most recent captions">
+        <span jsname="Xr1QTb"><i class="google-symbols notranslate" aria-hidden="true">arrow_downward</i></span>
+        <span jsname="V67aGc" class="UywwFc-vQzf8d" aria-hidden="true">Jump to the bottom</span>
+      </button>
+    </div>
+  </div>
+</div>

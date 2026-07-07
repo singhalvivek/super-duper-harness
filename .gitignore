@@ -1,18 +1,53 @@
+# --- secrets ---
 .env
+.env.local
+.env.*.local
+
+# --- node / pnpm ---
+node_modules/
+.pnpm-store/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# --- Next.js / build output ---
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# --- extension build output ---
+packages/extension/dist/
+
+# --- SQLite database + local data ---
+data/
+packages/web/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# --- Playwright ---
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+
+# --- Drizzle ---
+drizzle/meta/_journal.json.bak
+
+# --- OS / editor ---
+.DS_Store
+.idea/
+.vscode/
+
+# --- legacy Python (skeleton removed; keep ignores harmless) ---
 __pycache__/
 *.pyc
 *.pyo
 .venv/
 venv/
-node_modules/
-.next/
-dist/
-build/
 *.egg-info/
-.DS_Store
-*.log
-
-*.db
-*.db-shm
-*.db-wal
-data/

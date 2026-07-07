@@ -1,218 +1,61 @@
-# Agent
+# Agent / LLM Pipeline
 
-> Required when the project uses an agent framework. Delete this file if your project has no agent framework.
->
-> If your project has no agent framework (e.g., a simple script or single-LLM API call), delete this file.
->
+> **This project has NO agent-orchestration framework.** There is no LangGraph, CrewAI, AutoGen, or any graph/supervisor/multi-agent runtime, and no `StateGraph`, nodes, or conditional edges. This file documents the **plain Google Gemini call pipeline** the backend uses — a set of stateless, single-purpose Gemini invocations behind normal HTTP Route Handlers. There is no long-running agent state, no tool-calling loop, and no autonomous multi-step reasoning graph. This file is kept (not deleted) because Gemini calls are load-bearing and the auth-error / large-context behaviour must be specified precisely; it is deliberately not the framework template.
 
 ---
 
-## Agent Architecture Pattern
+## Why no framework
 
-<!-- FILL IN: Which pattern does this agent follow? Choose one and describe why. -->
-
-| Pattern | Use when |
-|---------|----------|
-| **Single-agent loop** | One LLM drives a deterministic tool-call loop. No branches, no handoffs. |
-| **Graph (LangGraph)** | Multi-step pipeline with conditional edges, checkpointing, or parallel nodes. |
-| **Multi-agent** | Specialised sub-agents with distinct roles; orchestrator routes between them. |
-| **Supervisor** | One supervisor LLM dispatches to worker agents based on task type. |
-| **Human-in-the-loop** | Execution pauses at defined checkpoints for user review or approval. |
-
-**Chosen:** <!-- state pattern + one-sentence rationale -->
+The product needs discrete, deterministic LLM transformations of a transcript — "give me a title", "give me a summary", "answer this question grounded in this transcript" — each a single request/response. There are no branches to route between, no tools for the model to choose, no cross-step planning, and no persistent agent memory beyond what we already store in the database (meetings, transcript lines, Q&A history). A graph framework would add moving parts and a second mental model for zero benefit. Each capability is one function that builds a prompt, calls Gemini once (or, for Q&A/search, retrieves-then-calls-once), validates the output, and returns. **Gemini's large context window is the deliberate architecture:** a 1–2h transcript fits in one call for titling (P1) and summarizing (P2); only cross-meeting/very-long Q&A (P3/P5) adds a retrieval step before the single Gemini call.
 
 ---
 
 ## LLM Provider & Model
 
-<!-- FILL IN: Which model drives each agent/node? State provider, model ID, and why. -->
+- **Provider:** Google Gemini via `@google/genai` (Google Gen AI TypeScript SDK).
+- **Model id:** `gemini-2.5-flash` — configurable via the `GEMINI_MODEL` env var (falls back to `gemini-2.5-flash`). Fast and large-context, suited to 1–2h transcripts.
+- **API key:** `GEMINI_API_KEY` from `.env` (gitignored, already present).
 
-| Agent / Node | Provider | Model ID | Rationale |
-|-------------|----------|----------|-----------|
-| <!-- node --> | Anthropic | <!-- e.g. claude-sonnet-4-6 --> | <!-- latency vs. quality trade-off --> |
+| Call surface | Phase | Purpose | Input | Output |
+|--------------|-------|---------|-------|--------|
+| `titleTranscript()` | **P1** | Auto-generate a concise meeting title | full transcript text (speaker: line) | short title string |
+| `summarizeMeeting()` | P2 | TL;DR + key points + action items with owners | full transcript text | structured `{ tldr, keyPoints[], actionItems[{text, owner?}] }` |
+| `answerQuestion()` | P3 | Grounded Q&A over one meeting | question + retrieved timestamped chunks | `{ answer, citations[{lineId, timestampMs}], inTranscript: boolean }` |
+| `searchAcrossMeetings()` | P5 | Grounded answer across all meetings | question + retrieved chunks from many meetings | `{ answer, matches[{meetingId, meetingTitle, citations[]}] }` |
 
-**Fallback behaviour:** <!-- Production resilience only: retry/backoff, degraded mode, or a surfaced error if the LLM API is unavailable or rate-limited. NOT a test/offline stub path — tests call the real API with keys from `.env`. -->
+**Fallback / resilience behaviour (production, NOT a test stub):**
+- **Auth failure (invalid/expired/wrong-format key → 401/403):** surface a CLEAR, actionable error. Never mask it, never pre-validate the key's shape (the provided key may not be the usual `AIza…` AI Studio format), never silently fall back to a canned answer. The error message must name the cause and point at `.env` and https://aistudio.google.com/apikey. Example surfaced message: `Gemini authentication failed. Check GEMINI_API_KEY in .env — get a key at https://aistudio.google.com/apikey.`
+- **Titling (P1) is non-fatal to ingest:** if `titleTranscript()` throws for any reason (auth, rate limit, timeout), the transcript is STILL saved; the meeting gets a placeholder title (e.g. `Meeting on 2026-07-01 14:30`) and `title_status = "failed"` so the dashboard can offer a re-title. Data is never lost to an LLM failure.
+- **Summary/Q&A/Search failures** return a surfaced error to the caller (the UI shows an error state and a retry) — they never write a hallucinated placeholder into storage as if real.
+- **Rate limit / transient (429/5xx):** one retry with short backoff, then surface the error. Tests still run against the real API (keys from `.env`); no offline stub is the gate.
 
-**Prompt strategy:** <!-- System/user split, few-shot examples, structured output (tool_use / JSON mode)? -->
-
----
-
-## Tools & Tool Calling
-
-<!-- FILL IN: Every tool the agent can call. -->
-
-| Tool name | Description | Inputs | Output | Side-effects |
-|-----------|-------------|--------|--------|--------------|
-| <!-- name --> | <!-- what it does --> | <!-- params --> | <!-- return type --> | <!-- DB write, API call, file write, etc. --> |
-
-**Tool selection strategy:** <!-- How does the agent decide which tool to call? (LLM choice, rule-based routing, forced single tool) -->
-
-**Tool failure handling:** <!-- retry, fallback, abort — per tool or global policy? -->
+**Prompt strategy:**
+- System/instruction + user content split. The transcript is passed as user content (speaker-labelled lines). Prompts request **structured JSON output** for summary/Q&A/search (parsed and validated with the shared Zod schemas) and a **plain short string** for titling.
+- Q&A and search prompts explicitly instruct the model to **only** use the provided transcript context and to return `inTranscript: false` (Q&A) / empty `matches` (search) when the answer is not present — the "do not hallucinate; flag not-in-transcript" rule is enforced in the prompt AND validated in code.
+- Prompts live as `.md` files under `packages/web/src/prompts/` (`title.md` in P1; `summary.md` P2; `qa.md` P3; `search.md` P5), loaded at runtime — never inlined as string literals in handlers.
 
 ---
 
-## Agent State
+## Where the pipeline lives
 
-<!-- FILL IN: The full state type. Every field must be named, typed, and annotated with what populates it. -->
-
-```python
-class AgentState(TypedDict):
-    # Identity
-    run_id: int                          # set at initialisation
-
-    # Input
-    # ...                                # fields populated from the trigger
-
-    # Pipeline data (populated progressively by nodes)
-    # ...
-
-    # Output
-    # ...                                # final result fields
-
-    # Control
-    error: str | None                    # set by any node on fatal failure
-    checkpoint: str | None              # last completed node (for resume)
-```
+| Concern | Location |
+|---------|----------|
+| Gemini client wrapper (model config, auth-error surfacing, one-retry) | `packages/web/src/llm/gemini.ts` |
+| Prompt templates | `packages/web/src/prompts/*.md` |
+| Titling call (P1) | `titleTranscript()` in `packages/web/src/llm/gemini.ts`, invoked by `app/api/sessions/route.ts` (ingest) |
+| Summary / Q&A / Search calls (P2/P3/P5) | same client module, invoked by their respective Route Handlers |
+| Structured-output validation | shared Zod schemas in `packages/shared/src/schema.ts` |
+| Retrieval (P3/P5 only, before the single Gemini call) | `packages/web/src/qa/*` and `packages/web/src/search/*` |
+| Observability | structured JSON log per Gemini call (surface, input char count, latency, ok/error) via `packages/web/src/log.ts` (pino) — wired in Phase 1 |
 
 ---
 
-## Nodes / Steps
+## State & Memory (no agent state)
 
-<!-- FILL IN: One section per node. For single-agent loops, describe each "step" or "tool call phase." -->
-
-### `node_[name]`
-
-**Reads from state:** <!-- field names -->
-
-**Writes to state:** <!-- field names -->
-
-**LLM call:** <!-- yes/no; if yes: prompt template summary, model used, output format -->
-
-**External calls:**
-
-| System | Operation | On Failure |
-|--------|-----------|------------|
-| <!-- system --> | <!-- what it calls --> | <!-- fatal (set error) / partial (log + continue) / retry --> |
-
-**Behaviour:** <!-- One paragraph. What decision or transformation does this node perform? -->
+There is no in-memory agent/graph state. Everything persistent lives in SQLite (see [data.md](data.md)): meetings, transcript lines, and — from Phase 3 — Q&A chat history (`qa_messages`) which provides conversational memory per meeting. Each Gemini call is stateless: it receives exactly the transcript context (and, for Q&A, prior turns from `qa_messages` if a follow-up) it needs, built fresh per request. Context-window management: titling/summary rely on Gemini's large context (whole transcript in one call); Q&A/search chunk-and-retrieve the relevant timestamped lines before the single call so even a 1–2h meeting is fully covered without truncation.
 
 ---
 
-## Graph / Flow Topology
+## Concurrency
 
-<!-- FILL IN: ASCII diagram of node flow. Show ALL conditional edges explicitly. -->
-
-```
-START
-  │
-  ▼
-node_a ──(error)──► node_handle_error ──► END
-  │
-  ▼
-node_b ──(condition)──► node_c
-  │                         │
-  │                         ▼
-  └──────────────────► node_finalize
-                             │
-                             ▼
-                            END
-```
-
-**Conditional edges:**
-
-| Source node | Condition | Target |
-|-------------|-----------|--------|
-| <!-- node --> | <!-- e.g. state["error"] is not None --> | <!-- target node --> |
-
----
-
-## Memory & Context
-
-<!-- FILL IN: How does the agent remember things across turns, steps, or runs? -->
-
-| Scope | Mechanism | What is stored |
-|-------|-----------|----------------|
-| **Within a run** | LangGraph state | All in-progress data |
-| **Across runs** | <!-- DB / vector store / none --> | <!-- e.g. past results, user prefs --> |
-| **Conversation** | <!-- message history / summary / none --> | <!-- if chat-style --> |
-
-**Context window management:** <!-- How is the prompt kept within limits? (summary, sliding window, RAG retrieval) -->
-
----
-
-## Human-in-the-Loop Checkpoints
-
-<!-- FILL IN: Where does execution pause for human input? Delete section if not applicable. -->
-
-| Checkpoint | What is shown to the user | Expected user action | Timeout / default |
-|------------|--------------------------|----------------------|-------------------|
-| <!-- name --> | <!-- what the agent surfaces --> | <!-- approve / edit / abort --> | <!-- timeout action --> |
-
----
-
-## Error Handling & Recovery
-
-<!-- FILL IN: How the agent handles failures at each level. -->
-
-**Node-level:** <!-- Each node catches its own exceptions; fatal errors set state["error"] and route to handle_error node. -->
-
-**Graph-level (handle_error node):**
-- Reads: `state.error`, `state.run_id`
-- Updates DB: run status → "failed", `error_message`, `completed_at`
-- Logs error with `run_id` context
-- Terminates graph
-
-**Resume / retry strategy:** <!-- Can a failed run be resumed from its last checkpoint? How? -->
-
-**Partial failure:** <!-- If a non-critical step fails, does the agent degrade gracefully or abort? -->
-
----
-
-## Observability
-
-<!-- FILL IN: What is logged, traced, and measured? -->
-
-| Signal | What | Where |
-|--------|------|-------|
-| **Trace** | One trace per run, one span per node | <!-- OpenTelemetry / LangSmith / stdout --> |
-| **LLM calls** | Prompt tokens, completion tokens, latency, model | <!-- LangSmith / structured log --> |
-| **Tool calls** | Tool name, inputs, success/error, latency | Structured log |
-| **Run outcome** | Status, total duration, error if any | DB + structured log |
-
----
-
-## Concurrency Model
-
-<!-- FILL IN: How concurrent agent runs are handled. -->
-
-- **Run isolation:** <!-- one-at-a-time (API returns 409) / queue / parallel with run_id scoping -->
-- **Parallel nodes within a run:** <!-- which nodes run in parallel and why -->
-- **Checkpointing:** <!-- none / SqliteSaver / PostgresSaver — required if human-in-the-loop or long-running -->
-
----
-
-## Graph Assembly (`agent/graph.py`)
-
-<!-- FILL IN: Pseudocode showing how nodes and edges are wired. Must be ≤ 60 lines in the real file. -->
-
-```python
-graph = StateGraph(AgentState)
-
-graph.add_node("node_a", node_a)
-graph.add_node("node_b", node_b)
-graph.add_node("finalize", node_finalize)
-graph.add_node("handle_error", node_handle_error)
-
-graph.set_entry_point("node_a")
-
-graph.add_conditional_edges(
-    "node_a",
-    lambda s: "handle_error" if s.get("error") else "node_b",
-)
-
-graph.add_edge("node_b", "finalize")
-graph.add_edge("finalize", END)
-graph.add_edge("handle_error", END)
-
-compiled_graph = graph.compile()
-```
+- Each `/api/*` request is independent; Gemini calls are per-request with no shared mutable state. `better-sqlite3` is synchronous; writes are wrapped in transactions. A single local user makes concurrency contention effectively nil, but ingest is transactional so a partially-written session can never appear in the library.

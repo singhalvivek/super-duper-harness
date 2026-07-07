@@ -1,0 +1,28 @@
+<!--
+  Fixture: Meet caption region using ONLY obfuscated class names and structure —
+  NO data-caption-* / .caption-* convenience hooks at all. This is the worst
+  case (real Meet DOM after a build-hash change strips our hooks). The parser
+  must still attribute speakers structurally: avatar alt for the name, and the
+  longest non-name text child for the caption. Proves parsing is structural, not
+  hook-dependent.
+-->
+<div class="iOzk7" aria-label="Captions" role="region">
+  <div class="TBMuR bj4p3b">
+    <img class="r6DyN" alt="Alan Turing" src="https://lh3.googleusercontent.com/a/alan" />
+    <div class="zs7s8d jxFHg">
+      <div class="KcIKyf jxFHg">Alan Turing</div>
+      <div class="iTTPOb VbkSUe">
+        I think the machine can be taught to imitate a human convincingly.
+      </div>
+    </div>
+  </div>
+  <div class="TBMuR bj4p3b">
+    <img class="r6DyN" alt="Katherine Johnson" src="https://lh3.googleusercontent.com/a/katherine" />
+    <div class="zs7s8d jxFHg">
+      <div class="KcIKyf jxFHg">Katherine Johnson</div>
+      <div class="iTTPOb VbkSUe">
+        Let me double check the trajectory calculations before we commit.
+      </div>
+    </div>
+  </div>
+</div>
